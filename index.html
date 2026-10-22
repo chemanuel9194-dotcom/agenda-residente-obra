@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#173F35"><meta name="description" content="Agenda de campo para residentes de obra, funciona sin conexión.">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css">
+  <title>Agenda de Obra</title>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><span class="brand-mark">AO</span><div><strong>Agenda de Obra</strong><small id="active-label">Selecciona una obra</small></div></div><div class="topbar-actions"><button id="toolsBtn" class="btn outline tools-button" aria-label="Herramientas" title="Herramientas"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span>Herramientas</span></button><button id="installBtn" class="btn outline hidden">Instalar</button></div></header>
+  <main id="app" class="app-shell">
+    <section id="view" aria-live="polite"></section>
+  </main>
+  <button id="quickBtn" class="quick" aria-label="Agregar registro">＋</button>
+  <nav class="tabbar" aria-label="Navegación principal">
+    <button data-page="home" class="tab active" aria-current="page"><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M9 8h1M14 8h1M9 12h1M14 12h1"/></svg></span>Obras</button>
+    <button data-page="journal" class="tab"><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v16M3 4h4a5 5 0 0 1 5 2 5 5 0 0 1 5-2h4v15h-4a5 5 0 0 0-5 2 5 5 0 0 0-5-2H3zM6 9h3M15 9h3M6 13h3M15 13h3"/></svg></span>Mi libreta</button>
+    <button data-page="materials" class="tab"><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 8v9l9 5 9-5V8M12 13v9M7.5 5.5l9 5"/></svg></span>Materiales</button>
+    <button data-page="attendance" class="tab"><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M7 2v4M17 2v4M3 9h18m-13 6 3 3 5-5"/></svg></span>Asistencia</button>
+  </nav>
+  <div id="toast" class="toast" role="status"></div><div id="modal" class="modal hidden" role="dialog" aria-modal="true"></div>
+  <script src="app.js"></script>
+</body></html>
