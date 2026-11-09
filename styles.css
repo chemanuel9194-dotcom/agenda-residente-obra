@@ -79,7 +79,7 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
 .work-choice>span:last-child { flex:0 0 34px; height:34px; display:grid; place-items:center; font-size:25px; line-height:1; border-radius:11px; background:var(--soft); color:var(--green); }
 #view[data-page="home"]>p { margin:-2px 0 24px; max-width:460px; }
 
-/* Menú de la obra: dos accesos y pase de lista a todo lo ancho en teléfono. */
+/* Menú de la obra: cuatro accesos compactos, sin ocupar la barra inferior. */
 .work-menu-head,.journal-heading { align-items:flex-start; margin-bottom:24px; }
 .work-menu-head>div,.journal-heading>div { flex:1 1 180px; }
 .work-menu-head h2,.journal-heading h2 { margin:8px 0 0; font-size:28px; line-height:1.2; letter-spacing:-.8px; }
@@ -89,9 +89,6 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
 .work-menu-card strong { font-size:17px; font-weight:650; letter-spacing:-.3px; }
 .work-menu-card small { color:var(--muted); font-size:13px; line-height:1.5; }
 .menu-icon { color:var(--green); background:var(--soft); width:42px; height:42px; display:grid; place-items:center; border-radius:13px; font-size:23px; line-height:1; margin-bottom:10px; }
-.work-menu-card:last-child { grid-column:1 / -1; min-height:100px; display:grid; grid-template-columns:42px 1fr; grid-template-rows:auto auto; column-gap:16px; row-gap:3px; align-content:center; }
-.work-menu-card:last-child .menu-icon { grid-row:1 / 3; margin:0; }
-.work-menu-card:last-child small { grid-column:2; }
 .note-new { width:100%; min-height:54px; font-size:15px; }
 .quick-note { margin-top:20px; }
 
@@ -134,6 +131,9 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
 .attendance-week strong { font-size:14px; line-height:1.5; font-weight:650; text-align:center; }
 #view[data-page="attendance"]>.toolbar { justify-content:space-between; }
 #attendance-save { font-size:12px; }
+.attendance-crew-picker { display:flex; align-items:end; gap:10px; margin-top:16px; padding:12px 14px; border:1px solid var(--line); border-radius:16px; background:var(--white); }
+.attendance-crew-picker .field { flex:1; min-width:0; margin:0; }
+.attendance-crew-picker .btn { flex:0 0 auto; min-height:44px; }
 .attendance-scroll { max-width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--white); padding-bottom:6px; box-shadow:var(--shadow); scrollbar-color:#A7BCA9 var(--paper); }
 .attendance-table { width:100%; min-width:820px; table-layout:fixed; border-spacing:0; font-size:13px; text-align:left; }
 .attendance-table caption { text-align:left; padding:16px 18px; color:var(--muted); font-size:12px; }
@@ -159,6 +159,10 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
 .attendance-retired { margin-top:20px; }
 .attendance-retired summary { cursor:pointer; font-size:14px; font-weight:650; }
 .attendance-retired .stack { margin-top:16px; }
+.field-tools-returned { margin-top:22px; }
+.field-tools-returned summary { min-height:44px; display:flex; align-items:center; cursor:pointer; font-weight:650; }
+.field-tools-returned .stack { margin-top:14px; }
+@media(max-width:480px) { .attendance-crew-picker { padding:10px; gap:8px; } .attendance-crew-picker .btn { padding:10px; font-size:12px; } }
 
 /* Presentación de las demás funciones existentes. */
 .hero { background:var(--green); color:var(--white); padding:26px; border-radius:var(--radius); box-shadow:var(--shadow); }
@@ -185,10 +189,8 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
   .app-shell { padding-top:40px; }
   .modal { align-items:center; padding:24px; }
   .stack.two { grid-template-columns:1fr 1fr; }
-  .work-menu-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+  .work-menu-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
   .work-menu-card { min-height:190px; padding:24px; }
-  .work-menu-card:last-child { grid-column:auto; display:flex; min-height:190px; gap:7px; }
-  .work-menu-card:last-child .menu-icon { margin-bottom:10px; }
   .attendance-week { justify-content:center; gap:20px; }
 }
 @media (max-width:600px) {
@@ -244,6 +246,10 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
 #view[data-page="journal"] .journal-entry-main { min-width:0; border-left:1px solid #173F3512; padding-left:16px; }
 #view[data-page="journal"] .journal-entry-meta { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
 #view[data-page="journal"] .journal-entry-meta time { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+#view[data-page="journal"] .journal-entry-controls { display:flex; align-items:center; gap:6px; }
+#view[data-page="journal"] .journal-note-menu { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--line); border-radius:12px; background:var(--white); color:var(--green); font:inherit; font-size:24px; font-weight:700; line-height:1; cursor:pointer; touch-action:manipulation; }
+#view[data-page="journal"] .journal-note-menu-dialog .journal-note-menu-actions { display:grid; gap:10px; margin-top:18px; }
+#view[data-page="journal"] .journal-note-menu-dialog .journal-note-menu-actions button { min-height:48px; }
 #view[data-page="journal"] .journal-real-date { margin:0 0 12px; color:var(--muted); font-size:12px; }
 #view[data-page="journal"] .journal-entry-writing { background:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,#173F3512 31px,#173F3512 32px); overflow-wrap:anywhere; }
 #view[data-page="journal"] .journal-entry-writing p { margin:0; font-size:16px; line-height:32px; color:var(--ink); }
