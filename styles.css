@@ -142,6 +142,7 @@ h1,h2,h3,p { overflow-wrap:anywhere; }
 .attendance-table thead th:first-child,.attendance-table thead th:nth-child(2) { text-align:left; }
 .attendance-table th:first-child { position:sticky; left:0; z-index:1; background:var(--white); width:188px; overflow-wrap:anywhere; padding-left:16px; box-shadow:1px 0 0 var(--line); }
 .attendance-table tbody th:first-child { font-size:14px; font-weight:650; }
+.attendance-worker-number { display:inline-block; min-width:1.8em; margin-right:3px; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; font-weight:600; }
 .attendance-table tbody tr:nth-child(even)>td,.attendance-table tbody tr:nth-child(even)>th { background:#FAFCF9; }
 .attendance-table thead th:first-child { background:var(--soft); z-index:2; }
 .attendance-table thead th:nth-child(2) { width:110px; }

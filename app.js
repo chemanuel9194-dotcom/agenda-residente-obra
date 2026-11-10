@@ -90,6 +90,16 @@ async function updateJournalNote(note,text){
  if(!saved||saved.id!==key||saved.value?.id!==note.id||saved.value.workId!==note.workId||saved.value.agendaDate!==current.value.agendaDate||saved.value.createdAt!==current.value.createdAt||saved.value.text!==value||saved.value.updatedAt!==now)throw Error('No se pudo verificar el cambio');
  return saved.value;
 }
+async function deleteJournalNote(note){
+ const key=NOTE_PREFIX+note.id,current=await get('settings',key);
+ if(!current||current.value?.kind!=='journal-note'||current.value.id!==note.id||current.value.workId!==note.workId)throw Error('La anotación ya no está disponible en esta obra');
+ await del('settings',key);
+ if(await get('settings',key))throw Error('No se pudo verificar la eliminación');
+}
+async function confirmAndDeleteJournalNote(note,confirmFn=confirm){
+ if(!confirmFn('¿Deseas eliminar esta anotación?'))return false;
+ await deleteJournalNote(note);return true;
+}
 function journalLinkedTaskChanged(note,task){
  const plan=journalInterpret(note.text,note.agendaDate);
  return !plan.dueDate||plan.dueDate!==task.dueDate||journalFold(plan.title)!==journalFold(task.title);
@@ -97,7 +107,7 @@ function journalLinkedTaskChanged(note,task){
 async function openJournalNoteMenu(id){
  const row=await get('settings',NOTE_PREFIX+id);
  if(!row||row.value?.kind!=='journal-note'||row.value.id!==id){toast('La anotación ya no está disponible');return}
- const m=$('#modal');m.innerHTML=`<div class="dialog journal-note-menu-dialog"><div class="dialog-head"><h2>Opciones de anotación</h2><button class="close" data-close aria-label="Cerrar">×</button></div><p class="subtle">${esc(journalLongDate(row.value.agendaDate))}</p><div class="journal-note-menu-actions"><button class="btn" type="button" data-edit-note>Editar</button><button class="btn light" type="button" data-close>Cancelar</button></div></div>`;m.classList.remove('hidden');m.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>m.classList.add('hidden'));m.onclick=e=>{if(e.target===m)m.classList.add('hidden')};m.querySelector('[data-edit-note]').onclick=()=>journalNoteEditForm(row.value);
+ const m=$('#modal');m.innerHTML=`<div class="dialog journal-note-menu-dialog"><div class="dialog-head"><h2>Opciones de anotación</h2><button class="close" data-close aria-label="Cerrar">×</button></div><p class="subtle">${esc(journalLongDate(row.value.agendaDate))}</p><div class="journal-note-menu-actions"><button class="btn" type="button" data-edit-note>Editar</button><button class="btn danger small" type="button" data-delete-note>Eliminar</button><button class="btn light" type="button" data-close>Cancelar</button></div></div>`;m.classList.remove('hidden');m.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>m.classList.add('hidden'));m.onclick=e=>{if(e.target===m)m.classList.add('hidden')};m.querySelector('[data-edit-note]').onclick=()=>journalNoteEditForm(row.value);m.querySelector('[data-delete-note]').onclick=()=>action('delete-journal-note',row.value.id);
 }
 async function journalNoteEditForm(note){
  const linked=note.linkedTaskId?await get('tasks',note.linkedTaskId):null;
@@ -234,7 +244,16 @@ async function attendanceCrewOptions(workId,selected=''){
  return `<option value="" ${selected===''?'selected':''}>Sin cuadrilla</option>${groups.map(g=>`<option value="${esc(g.id)}" ${selected===g.id?'selected':''}>${esc(g.name)}</option>`).join('')}`;
 }
 function attendanceCrewId(worker){return typeof worker?.attendanceCrewId==='string'?worker.attendanceCrewId:''}
-function attendanceWorkersForCrew(workers,crewId,marks=[]){return [...workers].filter(w=>attendanceCrewId(w)===crewId&&(!w.attendanceInactive||marks.some(r=>r.workerId===w.id))).sort((a,b)=>a.name.localeCompare(b.name,'es'))}
+function attendanceTradeRank(trade){
+ const normalized=String(trade||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').replace(/[^a-z0-9]+/g,' ').trim();
+ if(/\b(encargad[oa]s?|cabos?)\b/.test(normalized))return 0;
+ // Evaluar el cargo intermedio antes de «oficial» para evitar clasificarlo como oficial.
+ if(/\bmedios?\s+oficial(?:es)?\b/.test(normalized))return 2;
+ if(/\boficial(?:es)?\b/.test(normalized))return 1;
+ if(/\bayudantes?\b/.test(normalized))return 3;
+ return 4;
+}
+function attendanceWorkersForCrew(workers,crewId,marks=[]){return [...workers].filter(w=>attendanceCrewId(w)===crewId&&(!w.attendanceInactive||marks.some(r=>r.workerId===w.id))).sort((a,b)=>attendanceTradeRank(a.trade)-attendanceTradeRank(b.trade)||String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'})||String(a.id).localeCompare(String(b.id)))}
 async function saveWorkerRecord(item,formValues,forAttendance=false,attendanceWorkId=activeWork){
  const name=String(formValues.name||'').trim(),trade=String(formValues.trade||'').trim(),assignment=formValues.attendanceCrewId||'';if(!name||!trade)throw Error('Escribe el nombre y el cargo');
  const selectedWork=forAttendance?attendanceWorkId:formValues.workId,current=item.id?await get('workers',item.id):{};
@@ -302,9 +321,9 @@ async function renderAttendance(view){
   <div class="attendance-week row"><button class="btn light small" data-action="attendance-previous" aria-label="Semana anterior">‹ Anterior</button><strong>${dateFmt(start)} — ${dateFmt(end)}</strong><button class="btn light small" data-action="attendance-next" aria-label="Semana siguiente">Siguiente ›</button><button class="text-btn" data-action="attendance-current">Esta semana</button></div>
   <div class="toolbar"><button class="btn" data-action="attendance-new-worker">＋ Agregar trabajador</button><span class="subtle" id="attendance-save" role="status">Guardado automático</span></div>
   <p class="subtle">Toca cada día: vacío → ✓ asistencia → X falta → vacío. T cuenta solo ✓. Desliza la tabla para ver los siete días.</p>
-  ${list.length?`<div class="attendance-scroll" role="region" aria-label="Asistencias semanales; desplaza horizontalmente" tabindex="0"><table class="attendance-table"><caption class="subtle">${attendanceCrewSelection?esc(groups.find(g=>g.id===attendanceCrewSelection)?.name||'Cuadrilla'):'Sin cuadrilla'} · Domingo a sábado · ${esc(workName(workId))}</caption><thead><tr><th scope="col">Nombre completo</th><th scope="col">Cargo</th>${days.map((d,i)=>`<th scope="col" title="${dayNames[i]} ${dateFmt(d)}"><span>${['D','L','M','M','J','V','S'][i]}</span><small>${d.slice(8)}/${d.slice(5,7)}</small></th>`).join('')}<th scope="col" title="Total de asistencias">T</th></tr></thead><tbody>${list.map(w=>{
+  ${list.length?`<div class="attendance-scroll" role="region" aria-label="Asistencias semanales; desplaza horizontalmente" tabindex="0"><table class="attendance-table"><caption class="subtle">${attendanceCrewSelection?esc(groups.find(g=>g.id===attendanceCrewSelection)?.name||'Cuadrilla'):'Sin cuadrilla'} · Domingo a sábado · ${esc(workName(workId))}</caption><thead><tr><th scope="col">Nombre completo</th><th scope="col">Cargo</th>${days.map((d,i)=>`<th scope="col" title="${dayNames[i]} ${dateFmt(d)}"><span>${['D','L','M','M','J','V','S'][i]}</span><small>${d.slice(8)}/${d.slice(5,7)}</small></th>`).join('')}<th scope="col" title="Total de asistencias">T</th></tr></thead><tbody>${list.map((w,workerIndex)=>{
    const wm=marks.filter(m=>m.workerId===w.id);
-   return `<tr><th scope="row"><span>${esc(w.name)}</span>${w.attendanceInactive?'<small class="subtle">Retirado · historial</small>':''}${!w.attendanceHistoryOnly?`<div class="row">${editBtn('attendance-worker',w.id)}${!w.attendanceInactive?editBtn('retire-worker',w.id,'Retirar'):''}</div>`:''}</th><td>${esc(w.trade)}</td>${days.map(d=>{const status=wm.find(m=>m.date===d)?.status||'';return `<td><button type="button" class="attendance-cell ${status}" data-attendance="${esc(w.id)}" data-date="${d}" data-status="${status}" aria-label="${esc(w.name)} · ${dateFmt(d)} · ${attendanceLabel(status)}">${attendanceSymbol(status)}</button></td>`}).join('')}<td class="attendance-total">${attendanceTotal(wm)}</td></tr>`;
+   return `<tr><th scope="row"><span class="attendance-worker-number">${workerIndex+1}.</span><span>${esc(w.name)}</span>${w.attendanceInactive?'<small class="subtle">Retirado · historial</small>':''}${!w.attendanceHistoryOnly?`<div class="row">${editBtn('attendance-worker',w.id)}${!w.attendanceInactive?editBtn('retire-worker',w.id,'Retirar'):''}</div>`:''}</th><td>${esc(w.trade)}</td>${days.map(d=>{const status=wm.find(m=>m.date===d)?.status||'';return `<td><button type="button" class="attendance-cell ${status}" data-attendance="${esc(w.id)}" data-date="${d}" data-status="${status}" aria-label="${esc(w.name)} · ${dateFmt(d)} · ${attendanceLabel(status)}">${attendanceSymbol(status)}</button>`}).join('')}<td class="attendance-total">${attendanceTotal(wm)}</td></tr>`;
   }).join('')}</tbody></table></div>`:empty('Sin trabajadores en la lista activa','Agrega un trabajador o reincorpora uno retirado.')}
   ${retired.length?`<details class="panel attendance-retired"><summary>Trabajadores retirados (${retired.length})</summary><p class="subtle">Las semanas con registros conservan sus filas y permiten corregirlas.</p><div class="stack">${retired.map(w=>card(w.name,w.trade,'',editBtn('restore-worker',w.id,'Reincorporar'))).join('')}</div></details>`:''}`;
  const crewSelector=view.querySelector('#attendanceCrewSelect');crewSelector.onchange=()=>{attendanceCrewSelection=crewSelector.value;render()};
@@ -414,6 +433,11 @@ function go(p){
  if(a==='journal-task'){const task=await get('tasks',id);if(!task||task.workId!==activeWork)throw Error('La tarea no pertenece a esta obra');return journalTaskForm(task)}
  if(a==='journal-note-menu')return openJournalNoteMenu(id);
  if(a==='edit-journal-note'){const row=await get('settings',NOTE_PREFIX+id);if(!row||row.value?.kind!=='journal-note'||row.value.workId!==activeWork)throw Error('La anotación no está disponible en esta obra');return journalNoteEditForm(row.value)}
+ if(a==='delete-journal-note'){
+  const row=await get('settings',NOTE_PREFIX+id);if(!row||row.value?.kind!=='journal-note'||row.value.id!==id||row.value.workId!==activeWork)throw Error('La anotación no está disponible en esta obra');
+  if(!await confirmAndDeleteJournalNote(row.value))return;
+  $('#modal').classList.add('hidden');toast('Anotación eliminada');return render();
+ }
  if(a==='open-field-tools'){if(!activeWork||!workChosen)return go('home');return go('field-tools')}
  if(a==='new-field-tool')return fieldToolForm();
  if(a==='edit-field-tool'){const row=await get('settings',FIELD_TOOL_PREFIX+id);if(!row||row.value?.kind!=='physical-tool'||row.value.id!==id||row.value.workId!==activeWork)throw Error('La herramienta no está disponible en esta obra');return fieldToolForm(row.value)}
