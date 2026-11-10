@@ -31,6 +31,24 @@ function journalFutureAction(text){
  const imperatives='lleva|trae|revisa|checa|recibe|entrega|compra|pide|solicita|confirma|verifica|prepara|realiza|haz|instala|coloca|mide|limpia|retira|repara|llama|envia|recoge';
  return !/[?¿]/.test(text)&&new RegExp(`^(?:(?:${verbs})(?:e|as|a|emos|eis|an)?|${imperatives})\\b`).test(value);
 }
+function journalExplicitDateAtStart(text,reference){
+ const weekdays='lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo';
+ let match=String(text).match(new RegExp('^\\s*(?:('+weekdays+')\\s+)?(\\d{1,2})\\s+de\\s+([a-záéíóúñ]+)(?:\\s+(?:de(?:l)?\\s+)?(\\d{4})(?!\\d))?(?=[\\s,:;.—-]|$)','i'));
+ if(match){
+ const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12},month=months[journalFold(match[3])];
+ if(!month)return {length:match[0].length,warning:'No se programó: no se reconoce el mes escrito.'};
+ const dueDate=(match[4]||reference.slice(0,4))+'-'+String(month).padStart(2,'0')+'-'+match[2].padStart(2,'0');
+ if(!journalValidDay(dueDate))return {length:match[0].length,warning:'No se programó: la fecha escrita no existe.'};
+ if(match[1]&&['domingo','lunes','martes','miercoles','jueves','viernes','sabado'][new Date(dueDate+'T12:00:00').getDay()]!==journalFold(match[1]))return {length:match[0].length,warning:'No se programó: el día de la semana no coincide con la fecha.'};
+ return {length:match[0].length,dueDate};
+ }
+ match=String(text).match(new RegExp('^\\s*(?:('+weekdays+')\\s+)?(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})(?!\\d)(?=[\\s,:;.—-]|$)','i'));
+ if(!match)return null;
+ const dueDate=match[4]+'-'+match[3].padStart(2,'0')+'-'+match[2].padStart(2,'0');
+ if(!journalValidDay(dueDate))return {length:match[0].length,warning:'No se programó: la fecha escrita no existe.'};
+ if(match[1]&&['domingo','lunes','martes','miercoles','jueves','viernes','sabado'][new Date(dueDate+'T12:00:00').getDay()]!==journalFold(match[1]))return {length:match[0].length,warning:'No se programó: el día de la semana no coincide con la fecha.'};
+ return {length:match[0].length,dueDate};
+}
 function journalInterpret(text,reference){
  const none={warning:''},warn=warning=>({warning});if(!journalValidDay(reference))return warn('No se programó: la fecha de la página no es válida.');
  const weekdays='lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo',lead='(?:(?:el|para(?: el)?)\\s+)?',separator='(?:[\\s,:;.—-]+|$)';
@@ -38,6 +56,8 @@ function journalInterpret(text,reference){
  if(match){
   const relative=journalFold(match[1]).replace(/\s+/g,' ');if(relative==='hoy')return none;
   dueDate=journalShiftDay(reference,relative==='pasado manana'?2:1);rest=text.trim().slice(match[0].length);
+  const explicit=journalExplicitDateAtStart(rest,reference);
+  if(explicit){if(explicit.warning)return warn(explicit.warning);if(explicit.dueDate!==dueDate)return warn('No se programó: la fecha relativa y la fecha escrita se contradicen.');rest=rest.slice(explicit.length).replace(/^[\s,:;.—-]+/,'')}
  }else{
   const numeric=new RegExp(`^${lead}(?:(${weekdays})\\s+)?(\\d{1,2})/(\\d{1,2})/(\\d{4})(?!\\d)${separator}`,'i');
   const written=new RegExp(`^${lead}(?:(${weekdays})\\s+)?(\\d{1,2})\\s+de\\s+([a-záéíóúñ]+)(?:\\s+(?:de(?:l)?\\s+)?(\\d{4})(?!\\d))?${separator}`,'i');
@@ -59,7 +79,7 @@ function journalInterpret(text,reference){
  }
  if(!journalValidDay(dueDate))return warn('No se programó: la fecha escrita no existe.');
  if(weekday&&['domingo','lunes','martes','miercoles','jueves','viernes','sabado'][new Date(`${dueDate}T12:00:00`).getDay()]!==journalFold(weekday))return warn('No se programó: el día de la semana no coincide con la fecha.');
- const anotherDate=new RegExp(`\\b(?:pasado\\s+ma[ñn]ana|ma[ñn]ana|hoy|${weekdays})\\b|\\d{1,2}[/-]\\d{1,2}|\\d{1,2}\\s+de\\s+[a-záéíóúñ]+`,'i');
+ const anotherDate=new RegExp(`\\b(?:pasado\\s+ma[ñn]ana|ma[ñn]ana|hoy|${weekdays})\\b|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+de\\s+[a-záéíóúñ]+`,'i');
  if(anotherDate.test(rest)||/^(?:de(?:l)?\s+)?\d+\b/.test(rest))return warn('No se programó: hay varias fechas o una indicación de fecha incompleta.');
  if(dueDate<reference)return warn('No se programó: la fecha es anterior a esta página. Se mantuvo el año escrito o el de la página.');
  if(dueDate===reference||!journalFutureAction(rest))return none;
@@ -85,9 +105,35 @@ async function updateJournalNote(note,text){
  const key=NOTE_PREFIX+note.id,current=await get('settings',key);
  if(!current||current.value?.kind!=='journal-note'||current.value.id!==note.id||current.value.workId!==note.workId)throw Error('La anotación ya no está disponible en esta obra');
  const now=new Date().toISOString(),updated={...current.value,text:value,updatedAt:now};
- await put('settings',{...current,value:updated});
+ const linked=current.value.linkedTaskId?await get('tasks',current.value.linkedTaskId):null;
+ const validLinked=linked&&linked.workId===current.value.workId&&linked.sourceNoteId===current.value.id&&!linked.deletedAt;
+ let task=null;
+ if(validLinked){
+  // La nota puede cambiar, pero la tarea vinculada solo se modifica desde su editor.
+  delete updated.schedulingWarning;
+ }else{
+  const plan=journalInterpret(value,current.value.agendaDate);
+  delete updated.schedulingWarning;
+  if(plan.warning)updated.schedulingWarning=plan.warning;
+  if(plan.dueDate){
+   const taskId='note-task:'+current.value.id,existingTask=await get('tasks',taskId);
+   const alreadyLinked=existingTask||((await all('tasks')).find(t=>t.sourceNoteId===current.value.id&&t.workId===current.value.workId));
+   if(alreadyLinked){
+    if(alreadyLinked.sourceNoteId!==current.value.id||alreadyLinked.workId!==current.value.workId)throw Error('Ya existe un registro con la clave de esta tarea; no se modificó');
+    updated.linkedTaskId=alreadyLinked.id;delete updated.schedulingWarning;
+   }else{
+    task={id:taskId,sourceNoteId:current.value.id,workId:current.value.workId,title:plan.title,description:'',dueDate:plan.dueDate,dueTime:'',priority:'media',status:'pendiente',followup:'',createdAt:now,updatedAt:now};
+    updated.linkedTaskId=taskId;
+   }
+  }
+ }
+ const row={...current,value:updated};
+ if(task){
+  await new Promise((resolve,reject)=>{const transaction=db.transaction(['settings','tasks'],'readwrite');transaction.oncomplete=resolve;transaction.onabort=()=>reject(transaction.error||Error('No se pudo guardar la anotación y su tarea'));transaction.onerror=()=>{};transaction.objectStore('settings').put(row);transaction.objectStore('tasks').add(task)});
+ }else await put('settings',row);
  const saved=await get('settings',key);
  if(!saved||saved.id!==key||saved.value?.id!==note.id||saved.value.workId!==note.workId||saved.value.agendaDate!==current.value.agendaDate||saved.value.createdAt!==current.value.createdAt||saved.value.text!==value||saved.value.updatedAt!==now)throw Error('No se pudo verificar el cambio');
+ if(task){const linkedAfter=await get('tasks',task.id);if(linkedAfter?.sourceNoteId!==note.id||linkedAfter.workId!==note.workId||linkedAfter.title!==task.title||linkedAfter.dueDate!==task.dueDate)throw Error('No se pudo verificar la tarea vinculada')}
  return saved.value;
 }
 async function deleteJournalNote(note){

@@ -1,5 +1,5 @@
 // Incrementar VERSION en cada publicación que cambie HTML, CSS, JS o iconos.
-const VERSION='2026.11.09.3';
+const VERSION='2026.11.09.4';
 const PREFIX='agenda-obra-shell-'+encodeURIComponent(new URL(self.registration.scope).pathname)+'-';
 const CACHE=PREFIX+VERSION;
 const FILES=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./icon-maskable-512.png'];
